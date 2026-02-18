@@ -1,0 +1,139 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String   @default("")
+  role      UserRole @default(USER)
+  createdAt DateTime @default(now())
+
+  hospitalId Int? // 👈 ADD (nullable)
+  hospital   Hospital? @relation(fields: [hospitalId], references: [id])
+
+  appointmentsCreated  Appointment[]     @relation("UserAppointments")
+  appointmentsReceived Appointment[]     @relation("DoctorAppointments")
+  phone                String?
+  specialization       String?
+  active               Boolean           @default(true)
+  appointmentNotes     AppointmentNote[]
+  medicalRecords       MedicalRecord[]
+}
+
+model Patient {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String?  @unique
+  phone     String?
+  age       Int?
+  gender    String?
+  createdAt DateTime @default(now())
+
+  hospitalId Int? // 👈 ADD
+  hospital   Hospital? @relation(fields: [hospitalId], references: [id])
+
+  appointments   Appointment[]   @relation("PatientAppointments")
+  medicalRecords MedicalRecord[]
+}
+
+model Appointment {
+  id           Int               @id @default(autoincrement())
+  title        String
+  date         DateTime
+  notes        String?
+  diagnosis    String?
+  prescription String?
+  tests        String?
+  followUpDate DateTime?
+  status       AppointmentStatus @default(PENDING)
+
+  hospitalId Int
+  hospital   Hospital @relation("HospitalAppointments", fields: [hospitalId], references: [id])
+  //                        👆 relation name added
+
+  userId Int
+  user   User @relation("UserAppointments", fields: [userId], references: [id])
+
+  doctorId Int?
+  doctor   User? @relation("DoctorAppointments", fields: [doctorId], references: [id])
+
+  patientId Int
+  patient   Patient @relation("PatientAppointments", fields: [patientId], references: [id])
+
+  doctorNotes   AppointmentNote[]
+  MedicalRecord MedicalRecord[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum AppointmentStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+model AppointmentNote {
+  id            Int       @id @default(autoincrement())
+  appointmentId Int
+  doctorId      Int
+  diagnosis     String?
+  prescription  String?
+  tests         String?
+  followUpDate  DateTime?
+  createdAt     DateTime  @default(now())
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+  doctor      User        @relation(fields: [doctorId], references: [id])
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  DOCTOR
+  USER
+}
+
+model MedicalRecord {
+  id          Int      @id @default(autoincrement())
+  title       String
+  type        String // e.g. "Prescription", "Lab Report", "Diagnosis"
+  description String?
+  fileUrl     String? // for PDF / Images (optional)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  patientId Int?
+  patient   Patient? @relation(fields: [patientId], references: [id])
+
+  appointmentId Int?
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+}
+
+model Hospital {
+  id        Int      @id @default(autoincrement())
+  name      String
+  address   String?
+  createdAt DateTime @default(now())
+
+  users        User[]
+  patients     Patient[]
+  appointments Appointment[] @relation("HospitalAppointments")
+  //                               👆 SAME name
+}
